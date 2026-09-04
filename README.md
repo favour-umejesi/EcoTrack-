@@ -1,151 +1,55 @@
-# EcoTrack - Carbon Footprint Calculator
+# EcoTrack
 
-EcoTrack is a web application that helps users calculate and understand their carbon footprint. It provides personalized recommendations for reducing environmental impact based on lifestyle choices.
+An honest ledger of what you take from the world, and the habits worth keeping.
 
-## Features
+EcoTrack helps people see what their everyday choices cost the air, in numbers that show their sources, and then nudges them toward the habits that actually help: mend, thrift, share, take the bus. It started as a freshman-year carbon calculator and is being rebuilt as a community tool against over-consumption and fast fashion.
 
-- **Carbon Footprint Calculation**
-  - Transport emissions (daily commute)
-  - Electricity usage
-  - Cooking gas (LPG) consumption
-  - Meat consumption
-  - Flight travel
+## What it does
 
-- **Interactive Visualizations**
-  - Pie chart showing breakdown of emissions
-  - Bar graph comparing user's footprint with country averages
+- **Calculator.** Log a typical week: commute, home energy, food, flights, and the clothes you buy. Every line is quantity × a published emission factor, with the factor set and grid source named on the page. Distances and gas can be entered in local units; the engine stays metric.
+- **Insights.** A breakdown of where the footprint comes from, a comparison to your country's average, and field notes from the Climate Almanac, each one cited.
+- **Track.** Month by month progress compared with your own baseline, never with strangers. Points only ever go up.
+- **Community.** Real things members did, with a photo of the work and the estimated impact. Adopt an action and it counts toward your points.
+- **Character.** Members appear as a chosen character. Email and login never show anywhere.
 
-- **Smart Calculations**
-  - Primary calculation using Carbon Interface API
-  - Fallback to reliable estimates when API is unavailable
-  - Country-specific comparisons
+## Run it
 
-- **Personalized Recommendations**
-  - Category-specific tips for reducing emissions
-  - Actionable insights based on user input
-  - Interactive results display
-
-## Technology Stack
-
-- **Frontend**
-  - HTML5
-  - CSS3 (with modern animations and responsive design)
-  - JavaScript (Vanilla)
-  - Chart.js for visualizations
-
-- **Backend**
-  - Node.js
-  - Express.js
-  - Vercel Serverless Functions
-  - Carbon Interface API integration
-
-## Setup and Installation
----
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/your-username/eco-calculator.git
-cd eco-calculator
-```
-
-### 2. Install dependencies:
 ```bash
 npm install
+npm run dev        # http://localhost:3000
 ```
 
-### 3. Interact with the Eco Calculator
-- Answer the chatbot's questions about your lifestyle.
-- View your carbon footprint as a bar chart or pie chart.
-- Get actionable insights to reduce your impact.
+`npm test` runs the engine tests, `npm run lint` runs ESLint, and `npm run build` type-checks and produces the production build.
 
----
+## Status
 
-## Project Structure
+This is the UI-first phase. Every screen works on mock data and a pure calculation engine. There is no backend, database, or authentication yet.
 
-```
-eco-track/
-├── api/
-│ └── calculate-emissions/
-│ └── index.js # Serverless API function
-├── public/
-│ ├── index.html # Main HTML file
-│ ├── main.js # Frontend JavaScript
-│ └── styles.css # Styling
-├── package.json
-└── .gitignore
+| Piece | Status |
+|---|---|
+| Calculation engine, `src/lib/engine.ts` | Real formulas. Factor values are illustrative placeholders until the factor build script exists. |
+| Calculator inputs | Real, saved in the browser so guests keep their answers between pages. |
+| Country list and units, `src/data/countries.ts`, `src/lib/units.ts` | Real. Country → continent → world fallback for missing factors. |
+| Field notes and Almanac answers, `src/data/mock.ts` | Hand-written stand-ins with real sources. The real version retrieves passages from a curated library. |
+| Tracking history, points, streaks, community posts, profile | Mock data. |
+| Sign in | A mock toggle. |
+| Photos | Stand-ins; composer uploads preview locally and never leave the browser. |
 
-```
+## Where things live
 
----
+- `src/app/` one folder per page: `/`, `/calculator`, `/insights`, `/track`, `/community`, `/community/new`, `/profile`
+- `src/components/Bits.tsx` the paper scraps, stamps, tags, fields, buttons, sketches and icons that make up the visual language
+- `src/components/Motion.tsx` the scroll-in motion system
+- `src/lib/engine.ts` the footprint calculation and action savings formulas, with tests beside it
+- `src/data/` mock content and the country list
+- `public/textures/`, `public/sketch/`, `public/images/` paper textures, ink sketches cut from the original illustration, the wordmark, and placeholder photos
+- `design/` source artwork: the original illustration, the cut-out wordmark and stickers, textures, and the fern engraving
+- `pencil-new.pen` the design file, opened with Pencil
 
-## Customization
+## Design
 
-1. **Background Image**:
-   - Replace the `background-placeholder.png` in the `#chatbot-container` CSS with your preferred image.
-     
-2. **Chart Colors**:
-   - Modify the `backgroundColor` array in the `chartData` object in `script.js`.
-
----
-
-## Usage
-1. Enter your daily commute distance and mode of transport
-2. Input monthly electricity consumption
-3. Specify natural gas usage
-4. Enter weekly meat consumption
-5. Add number of monthly flights
-6. Select your country
-7. Click "Calculate" to see your annual carbon footprint
-
-## API Reference
-The application uses the Carbon Interface API for emissions calculations. Key endpoints:
-- `/estimates` - Calculate emissions for various activities
-- Vehicle emissions
-- Electricity usage
-- Flight emissions
-
-## API Integration
-
-The application uses the Carbon Interface API for precise calculations with a fallback system for reliability:
-
-- Primary: Carbon Interface API calculations
-- Fallback: Built-in emission factors
-  - Transport: 0.2 kg CO2e per km
-  - Electricity: 0.5 kg CO2e per kWh
-  - LPG: 1.5 kg CO2e per liter
-  - Meat: 2.5 kg CO2e per kg
-  - Flights: 90 kg CO2e per flight
-
-## Deployment
-
-The application is deployed on Vercel and can be accessed at [your-deployment-url].
-
-To deploy your own instance:
-
-1. Fork this repository
-2. Connect your fork to Vercel
-3. Add your environment variables in Vercel dashboard
-4. Deploy!
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+The look is a naturalist's ledger: aged paper, typewriter labels, rubber stamps, pinned notes, and ink sketches cut from the original EcoTrack illustration. Type is IM Fell English, Crimson Pro, Special Elite and Caveat, all from Google Fonts. Motion respects the reduced-motion setting.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Carbon Interface API for emissions data
-- Chart.js for visualization capabilities
-- Vercel for hosting and serverless functions
-
-## Future Improvements
-
-- [ ] Add more detailed transport options
-- [ ] Implement user accounts for tracking progress
-- [ ] Add more visualization options
-- [ ] Include more country-specific data
-- [ ] Add offline calculation capabilities
-
+MIT
