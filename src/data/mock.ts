@@ -67,6 +67,8 @@ export const RULES = [
   ["flag", "Report anything that looks off. A person reviews every report."],
 ];
 export const CHARACTERS = [["fern", "sprout"], ["kettle", "coffee"], ["heron", "bird"], ["sun", "sun"], ["pebble", "droplet"]];
+/** Suggested character names; the shuffle buttons draw from here. */
+export const PERSONA_NAMES = ["Quiet Fern", "Orange Kettle", "Blue Heron", "Low Sun", "River Pebble", "Grey Moth", "Small Rain", "Paper Wren", "Slow Tide", "Copper Beech", "Late Frost", "Wild Sorrel", "Old Compass", "Mild Thunder"];
 
 /** Canned Climate Almanac answers keyed by a word in the question. Stands in for retrieval + generation. */
 export const ALMANAC: { match: RegExp; answer: string; sources: string[] }[] = [

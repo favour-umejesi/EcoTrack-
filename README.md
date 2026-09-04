@@ -21,6 +21,8 @@ EcoTrack helps people see what their everyday choices cost the air, in numbers t
 
 ## Run it
 
+Copy `.env.example` to `.env` and fill in the Neon values (database URL, Auth URL, a random cookie secret). The site works as a guest without them; sign-in needs them.
+
 ```bash
 npm install
 npm run dev        # http://localhost:3000

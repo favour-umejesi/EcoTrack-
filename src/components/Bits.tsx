@@ -21,7 +21,7 @@ export function Stamp({ children, tone = "rust", rot = 0, sm }: { children: Reac
 export function Tag({ children, on, rot = 0, paper, onClick }: { children: ReactNode; on?: boolean; rot?: number; paper?: boolean; onClick?: () => void }) {
   const cls = `tag ${on ? "tag--on" : ""} ${paper ? "tag--paper" : ""}`;
   const st = { "--rot": `${rot}deg` } as CSSProperties;
-  return onClick ? <button className={cls} style={st} onClick={onClick}>{children}</button> : <span className={cls} style={st}>{children}</span>;
+  return onClick ? <button type="button" className={cls} style={st} onClick={onClick}>{children}</button> : <span className={cls} style={st}>{children}</span>;
 }
 
 export function Sketch({ name, x, y, w, rot = 0, right, bottom, opacity }: { name: string; x?: number; y?: number; w: number; rot?: number; right?: number; bottom?: number; opacity?: number }) {

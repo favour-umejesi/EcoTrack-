@@ -3,27 +3,30 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "./Session";
 
-const LINKS = [["Calculator", "/calculator"], ["Insights", "/insights"], ["Track", "/track"], ["Community", "/community"]] as const;
+/** Guests get the calculator; insights open from its "See my insights" button. The rest opens once you sign in. */
+const LINKS = [["Calculator", "/calculator", false], ["Insights", "/insights", true], ["Track", "/track", true], ["Community", "/community", true]] as const;
 
 export default function Nav() {
   const path = usePathname();
   const router = useRouter();
-  const { mode, signIn, signOut, persona } = useSession();
+  const { mode, ready, signOut, persona } = useSession();
+  const member = ready && mode === "member";
   return (
     <nav className="nav">
       <Link href="/" className="nav__brand" aria-label="EcoTrack home"><img src="/images/wordmark.png" alt="EcoTrack" /></Link>
-      {LINKS.map(([label, href]) => (
+      {LINKS.filter(([, , membersOnly]) => !membersOnly || member).map(([label, href]) => (
         <Link key={href} href={href} className={`nav__link ${path.startsWith(href) ? "nav__link--on" : ""}`}>{label}</Link>
       ))}
-      {mode === "guest" ? (
+      {ready && mode === "guest" && (
         <>
           <span className="ty">guest ledger</span>
-          <button className="btn btn--outline btn--sm" onClick={() => { signIn(); router.push("/track"); }}>Sign in</button>
+          <Link href="/sign-in" className="btn btn--outline btn--sm">Sign in</Link>
         </>
-      ) : (
+      )}
+      {member && (
         <>
           <Link href="/profile" className="persona"><LeafIcon /> {persona.name}</Link>
-          <button className="ty link" onClick={() => { signOut(); router.push("/"); }}>sign out</button>
+          <button className="ty link" onClick={async () => { await signOut(); router.push("/"); }}>sign out</button>
         </>
       )}
     </nav>

@@ -1,18 +1,34 @@
 "use client";
 import { createContext, useContext } from "react";
-import { useLocalValue, writeKey } from "@/lib/store";
+import { authClient } from "@/lib/auth/client";
+import { useLocalValue } from "@/lib/store";
 
 export type Mode = "guest" | "member";
-type Session = { mode: Mode; signIn: () => void; signOut: () => void; persona: { name: string; character: string } };
+type Session = {
+  mode: Mode;
+  /** False until the first session check has answered, so the nav does not flash the wrong state. */
+  ready: boolean;
+  signOut: () => Promise<void>;
+  persona: { name: string; character: string };
+};
 
-const Ctx = createContext<Session>({ mode: "guest", signIn: () => {}, signOut: () => {}, persona: { name: "Quiet Fern", character: "fern" } });
+const FALLBACK = { name: "Quiet Fern", character: "fern" };
+const Ctx = createContext<Session>({ mode: "guest", ready: false, signOut: async () => {}, persona: FALLBACK });
 
-/** Mock session: no real auth yet. The mode lives in localStorage so the guest → member flow can be walked through. */
+/** Real session from Neon Auth. The character still lives in localStorage until profiles have a table. */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const mode = useLocalValue("ecotrack.mode", "guest") as Mode;
-  const set = (m: Mode) => writeKey("ecotrack.mode", m);
+  const { data, isPending } = authClient.useSession();
+  const character = useLocalValue("ecotrack.character", FALLBACK.character);
+  const user = data?.user;
   return (
-    <Ctx.Provider value={{ mode, signIn: () => set("member"), signOut: () => set("guest"), persona: { name: "Quiet Fern", character: "fern" } }}>
+    <Ctx.Provider
+      value={{
+        mode: user ? "member" : "guest",
+        ready: !isPending,
+        signOut: async () => { await authClient.signOut(); },
+        persona: { name: user?.name || FALLBACK.name, character },
+      }}
+    >
       {children}
     </Ctx.Provider>
   );

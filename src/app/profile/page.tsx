@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Icon, Paper, Sketch, Stamp } from "@/components/Bits";
 import { useSession } from "@/components/Session";
-import { ADOPTED, CHARACTERS, POINTS_LEDGER, STREAK } from "@/data/mock";
+import { ADOPTED, CHARACTERS, PERSONA_NAMES, POINTS_LEDGER, STREAK } from "@/data/mock";
 
 export default function Profile() {
   const { persona } = useSession();
@@ -20,7 +20,7 @@ export default function Profile() {
               <span style={{ width: 64, height: 64, borderRadius: "50%", background: "url(/textures/kraft3.jpg) center / cover", boxShadow: "inset 0 0 0 1.5px var(--ink)", display: "grid", placeItems: "center" }}><Icon name={icon} size={30} /></span>
               <div><div className="fell" style={{ fontSize: 28 }}>{name}</div><span className="ty" style={{ fontSize: 10 }}>Member since March 2026</span></div>
             </div>
-            <label className="field"><span className="ty">Display name</span><span className="blank"><input value={name} onChange={(e) => setName(e.target.value)} /><button className="ty" onClick={() => setName(["Quiet Fern", "Orange Kettle", "Blue Heron", "Low Sun", "River Pebble"][Math.floor(Math.random() * 5)])}>shuffle</button></span></label>
+            <label className="field"><span className="ty">Display name</span><span className="blank"><input value={name} onChange={(e) => setName(e.target.value)} /><button className="ty" onClick={() => setName(PERSONA_NAMES[Math.floor(Math.random() * PERSONA_NAMES.length)])}>shuffle</button></span></label>
             <span className="ty ty-u" style={{ fontSize: 11 }}>Choose a character</span>
             <div className="row" style={{ gap: 10 }}>
               {CHARACTERS.map(([c, ic], k) => (

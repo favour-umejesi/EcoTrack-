@@ -47,3 +47,4 @@ ENGINEERING.pdf
 
 # local env files
 .env
+!.env.example

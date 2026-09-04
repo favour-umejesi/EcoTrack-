@@ -17,8 +17,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fell.variable} ${body.variable} ${type.variable} ${hand.variable}`}>
+    <html lang="en" className={`${fell.variable} ${body.variable} ${type.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
+        {/* Adds the `js` class before hydration so the motion CSS can hide things safely; hence suppressHydrationWarning on <html>. */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
       </head>
       <body>

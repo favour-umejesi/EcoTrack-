@@ -20,3 +20,9 @@ export function useLocalValue(key: string, fallback: string): string {
     () => fallback,
   );
 }
+
+const never = () => () => {};
+/** False on the server and during hydration, true once the browser is in charge. Lets pages act on localStorage safely. */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(never, () => true, () => false);
+}

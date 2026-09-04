@@ -1,14 +1,23 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icon, Paper, Sketch, Stamp, Tag } from "@/components/Bits";
 import CountUp from "@/components/CountUp";
 import { ACTIONS, compareToAverage, compute, fmtKg, fmtT, type Inputs } from "@/lib/engine";
 import { ACTION_LABELS, ALMANAC, ALMANAC_FALLBACK, NOTES, parseInputs, STORAGE_KEY } from "@/data/mock";
-import { useLocalValue } from "@/lib/store";
+import { useSession } from "@/components/Session";
+import { useHydrated, useLocalValue } from "@/lib/store";
 
 export default function Insights() {
-  const i: Inputs = parseInputs(useLocalValue(STORAGE_KEY, ""));
+  const router = useRouter();
+  const { mode, ready } = useSession();
+  const hydrated = useHydrated();
+  const saved = useLocalValue(STORAGE_KEY, "");
+  const i: Inputs = parseInputs(saved);
+  // Guests arrive here from "See my insights". With nothing logged there is nothing to show, so send them to log something.
+  const nothingToShow = hydrated && ready && mode === "guest" && !saved;
+  useEffect(() => { if (nothingToShow) router.replace("/calculator"); }, [nothingToShow, router]);
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState<{ answer: string; sources: string[] } | null>(null);
   const [added, setAdded] = useState<string[]>([]);
@@ -17,6 +26,7 @@ export default function Insights() {
   const max = Math.max(...r.lines.map((l) => l.kg), 1);
   const notes = r.lines.slice(0, 3).map((l) => NOTES.find((n) => n.category === l.key)).filter(Boolean) as typeof NOTES;
   const ask = () => setAnswer(ALMANAC.find((a) => a.match.test(q)) ?? ALMANAC_FALLBACK);
+  if (nothingToShow) return null;
 
   return (
     <main className="page ruled rel" style={{ minHeight: "calc(100vh - 84px)" }}>
