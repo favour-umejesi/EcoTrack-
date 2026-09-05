@@ -7,16 +7,34 @@ import { defaultUnits, fromKm, fromLpgKg, fromNgM3, LPG_UNITS, NG_UNITS, tidy, t
 import { useSession } from "@/components/Session";
 import CountUp from "@/components/CountUp";
 import { compute, fmtKg, fmtT, FACTOR_SET, type Inputs, type Mode } from "@/lib/engine";
-import { parseInputs, STORAGE_KEY } from "@/data/mock";
-import { useLocalValue, writeKey } from "@/lib/store";
+import { DEFAULT_INPUTS, parseInputs, STORAGE_KEY } from "@/data/mock";
+import { localeCountry } from "@/data/countries";
+import { removeKey, useHydrated, useLocalValue, writeKey } from "@/lib/store";
+import { saveWeeklyLog } from "@/db/actions";
 
 const MODES: [Mode, string, string][] = [["car", "Car", "car"], ["bus", "Bus", "bus"], ["train", "Train", "train"], ["bike", "Bike", "bike"], ["walk", "Walk", "walk"]];
 
+/**
+ * Saved answers in localStorage are not readable until the browser has taken over from the server-rendered page,
+ * so the form is keyed on that moment: it mounts once with defaults, then remounts with the saved answers.
+ */
 export default function Calculator() {
+  const hydrated = useHydrated();
+  return <CalculatorForm key={hydrated ? "browser" : "server"} />;
+}
+
+/** A blank week with the country and units guessed from the browser locale. */
+function freshInputs(): Inputs {
+  const country = localeCountry();
+  const u = defaultUnits(country);
+  return { ...DEFAULT_INPUTS, country, distanceUnit: u.distance, gasUnit: u.lpg };
+}
+
+function CalculatorForm() {
   const router = useRouter();
   const { mode } = useSession();
   const saved = useLocalValue(STORAGE_KEY, "");
-  const [i, setI] = useState<Inputs>(() => parseInputs(saved));
+  const [i, setI] = useState<Inputs>(() => (saved ? parseInputs(saved) : freshInputs()));
   const set = <K extends keyof Inputs>(k: K, v: Inputs[K]) => setI((p) => ({ ...p, [k]: v }));
   const num = (k: keyof Inputs) => (v: string) => set(k, Number(v) as never);
   const r = compute(i);
@@ -25,6 +43,19 @@ export default function Calculator() {
   const gasShown = i.gasType === "lpg" ? fromLpgKg(i.gasQty, i.gasUnit as LpgUnit) : fromNgM3(i.gasQty, i.gasUnit as NgUnit);
   const setGasShown = (v: string) => set("gasQty", i.gasType === "lpg" ? toLpgKg(Number(v), i.gasUnit as LpgUnit) : toNgM3(Number(v), i.gasUnit as NgUnit));
   const gasUnits: GasUnit[] = i.gasType === "lpg" ? LPG_UNITS : NG_UNITS;
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const seeInsights = async () => {
+    writeKey(STORAGE_KEY, JSON.stringify(i));
+    if (mode === "member") {
+      setSaving(true);
+      setSaveError("");
+      const r = await saveWeeklyLog(i);
+      setSaving(false);
+      if (!r.ok) { setSaveError(r.error); return; }
+    }
+    router.push("/insights");
+  };
 
   return (
     <main className="page ruled rel" style={{ minHeight: "calc(100vh - 84px)" }}>
@@ -83,7 +114,7 @@ export default function Calculator() {
             <div className="stack" style={{ gap: 10 }}>
               <span className="ty ty-u" style={{ letterSpacing: 3, fontSize: 11 }}>Running total</span>
               <div className="row" style={{ alignItems: "flex-end", gap: 8 }}>
-                <span className="fell" style={{ fontSize: 54, lineHeight: 1 }}><CountUp value={r.totalKg} format={fmtT} duration={700} /></span>
+                <span className="fell" style={{ fontSize: "clamp(40px, 10vw, 54px)", lineHeight: 1 }}><CountUp value={r.totalKg} format={fmtT} duration={700} /></span>
                 <span className="bd" style={{ fontSize: 16 }}>tonnes CO₂e a year</span>
               </div>
               {r.lines.map((l) => (
@@ -96,7 +127,12 @@ export default function Calculator() {
                 <Icon name="book" size={14} color="var(--ink-soft)" />
                 <p className="bd soft" style={{ fontSize: 13, margin: 0 }}>Factors: {FACTOR_SET.sources.join("; ")}. Factor set {FACTOR_SET.version}. Grid: {r.grid.label}{r.grid.level !== "country" ? ", used because there is no country figure yet" : ""}.</p>
               </div>
-              <button className="btn btn--wide" style={{ padding: 14 }} onClick={() => { writeKey(STORAGE_KEY, JSON.stringify(i)); router.push("/insights"); }}>See my insights</button>
+              <button className="btn btn--wide" style={{ padding: 14 }} disabled={saving} onClick={seeInsights}>{saving ? "Saving to your ledger" : "See my insights"}</button>
+              {saveError && <p className="bd rust" style={{ margin: "8px 0 0", fontSize: 13 }}>{saveError}</p>}
+              <div className="row between" style={{ marginTop: 8 }}>
+                <span className="ty" style={{ fontSize: 10 }}>{mode === "member" ? "Saves this week to your ledger." : "Kept in this browser only."}</span>
+                <button type="button" className="ty link" style={{ fontSize: 10 }} onClick={() => { removeKey(STORAGE_KEY); setSaveError(""); setI(freshInputs()); }}>start over</button>
+              </div>
             </div>
           </Paper>
           {mode === "guest" && <p className="hand soft" style={{ margin: "36px 12px 0", transform: "rotate(-3deg)", maxWidth: 330 }}>you&apos;re a guest. this page lives only in your browser; sign in to keep it.</p>}

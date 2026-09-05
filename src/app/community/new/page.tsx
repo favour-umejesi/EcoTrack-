@@ -47,7 +47,7 @@ export default function Compose() {
               </label>
             )}
           </div>
-          <p className="row bd" style={{ gap: 10, margin: 0, fontSize: 14, width: 720, flexWrap: "nowrap" }}><Icon name="leaf" size={16} color="var(--moss-deep)" /> Estimated impact: about 12 kg CO₂e avoided. Worked out from the action type; you can leave it or adjust it. <button className="ty rust link" style={{ fontSize: 10 }}>adjust</button></p>
+          <p className="row bd" style={{ gap: 10, margin: 0, fontSize: 14, maxWidth: 720, flexWrap: "nowrap" }}><Icon name="leaf" size={16} color="var(--moss-deep)" /> Estimated impact: about 12 kg CO₂e avoided. Worked out from the action type; you can leave it or adjust it. <button className="ty rust link" style={{ fontSize: 10 }}>adjust</button></p>
           <div className="row" style={{ gap: 12 }}>
             <button className="btn" onClick={() => setPosted(true)}><Icon name="send" size={16} /> Share with the community</button>
             <button className="btn btn--outline">Save draft</button>

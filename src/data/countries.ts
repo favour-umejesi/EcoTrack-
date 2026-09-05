@@ -16,3 +16,10 @@ export const COUNTRIES: Country[] = CONTINENTS.flatMap((continent) =>
 );
 export const COUNTRY_BY_CODE: Record<string, Country> = Object.fromEntries(COUNTRIES.map((c) => [c.code, c]));
 export const countryName = (code: string) => COUNTRY_BY_CODE[code]?.name ?? "the world";
+
+/** Country code from the browser locale ("en-US" -> "us"), or the fallback when unknown or on the server. */
+export function localeCountry(fallback = "gb"): string {
+  if (typeof navigator === "undefined") return fallback;
+  const region = (navigator.language ?? "").split("-")[1]?.toLowerCase();
+  return region && COUNTRY_BY_CODE[region] ? region : fallback;
+}

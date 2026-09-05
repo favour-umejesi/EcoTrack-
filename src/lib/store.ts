@@ -13,6 +13,10 @@ export function writeKey(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch {}
   emit();
 }
+export function removeKey(key: string) {
+  try { localStorage.removeItem(key); } catch {}
+  emit();
+}
 export function useLocalValue(key: string, fallback: string): string {
   return useSyncExternalStore(
     (cb) => { listeners.add(cb); return () => listeners.delete(cb); },

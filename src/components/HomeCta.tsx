@@ -10,7 +10,7 @@ export default function HomeCta() {
           <Link href="/sign-in" className="bd link" style={{ fontSize: 17 }}>or sign in to keep your ledger</Link>
         </div>
       </Paper>
-      <p className="hand soft" style={{ position: "absolute", left: 500, top: 60, width: 260, transform: "rotate(-4deg)", margin: 0 }}>no account, no tracking. just the sums.</p>
+      <p className="hand soft float-note" style={{ position: "absolute", left: 500, top: 60, width: 260, transform: "rotate(-4deg)", margin: 0 }}>no account, no tracking. just the sums.</p>
     </div>
   );
 }

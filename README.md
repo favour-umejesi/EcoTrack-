@@ -28,7 +28,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-`npm test` runs the engine tests, `npm run lint` runs ESLint, and `npm run build` produces the production build.
+`npm test` runs the engine and rules tests, `npm run lint` runs ESLint, and `npm run build` produces the production build. After changing `src/db/schema.ts`, `npm run db:generate` writes a migration and `npm run db:migrate` applies it to the database in `.env`.
 
 The current build runs on mock data and a pure calculation engine; accounts, storage, and the real factor sets come next.
 

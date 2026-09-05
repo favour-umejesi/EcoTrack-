@@ -1,8 +1,9 @@
 import type { Inputs, Category } from "@/lib/engine";
 
+/** A blank week: nothing pre-filled, so every number on screen is one the person typed. The calculator picks the country from the browser locale. */
 export const DEFAULT_INPUTS: Inputs = {
-  country: "gb", mode: "car", fuel: "petrol", commuteKm: 30, electricityKwh: 260, gasQty: 12, gasType: "lpg",
-  meatMeals: 5, flights: 2, flightClass: "short", clothingItems: 3, secondhandItems: 1, distanceUnit: "mi", gasUnit: "kg",
+  country: "gb", mode: "car", fuel: "petrol", commuteKm: 0, electricityKwh: 0, gasQty: 0, gasType: "lpg",
+  meatMeals: 0, flights: 0, flightClass: "short", clothingItems: 0, secondhandItems: 0, distanceUnit: "mi", gasUnit: "kg",
 };
 
 export const STORAGE_KEY = "ecotrack.inputs";

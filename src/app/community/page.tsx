@@ -13,7 +13,7 @@ export default function Community() {
     <main className="page rel" style={{ minHeight: "calc(100vh - 84px)", background: "url(/textures/kraft3.jpg) center / cover", paddingLeft: 72 }}>
       <div className="row between" style={{ alignItems: "flex-start", marginBottom: 20 }}>
         <div style={{ maxWidth: 760 }}>
-          <h1 className="fell rv" style={{ fontSize: 46 }}>Community ledger</h1>
+          <h1 className="fell rv" style={{ fontSize: "clamp(34px, 4.5vw, 46px)" }}>Community ledger</h1>
           <p className="bd soft" style={{ fontSize: 18, margin: "8px 0 0" }}>Real things members did, with a photo of the work and the estimated impact. Adopt one and it counts toward your points.</p>
         </div>
         <Link href="/community/new" className="btn"><Icon name="plus" size={16} /> Share what you did</Link>
@@ -27,7 +27,7 @@ export default function Community() {
           {posts.map((p, k) => {
             const done = did.includes(p.id);
             return (
-              <div key={p.id} className="row" style={{ gap: 32, alignItems: "flex-start", flexDirection: k % 2 ? "row-reverse" : "row", flexWrap: "nowrap" }}>
+              <div key={p.id} className="row post-row" style={{ gap: 32, alignItems: "flex-start", flexDirection: k % 2 ? "row-reverse" : "row", flexWrap: "nowrap" }}>
                 <Paper tone="print" rot={k % 2 ? 2 : -2.5} pin style={{ width: 380, flex: "0 0 380px" }}>
                   <img src={p.photo} alt={p.title} style={{ width: 356, height: 254, objectFit: "cover" }} />
                   <span className="ty" style={{ display: "block", marginTop: 10, fontSize: 10 }}>{p.caption}</span>

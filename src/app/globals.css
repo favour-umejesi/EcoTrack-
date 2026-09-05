@@ -130,12 +130,41 @@ img { display: block; max-width: 100%; }
 /* chart */
 .chart-tip { position: absolute; pointer-events: none; }
 
+/* ---------- narrow screens ----------
+   The pages set desktop widths and grids inline, so these rules override them on purpose (!important). */
 @media (max-width: 1100px) {
-  .page { padding: 24px 24px 64px 24px; }
-  .cols--2, .cols--insights { grid-template-columns: 1fr; }
+  .page { padding: 24px 24px 64px !important; }
+  .cols, .cols--2, .cols--insights { grid-template-columns: 1fr !important; gap: 28px !important; }
   .sketch { display: none; }
-  .nav { padding: 0 24px; }
-  .nav__brand { left: 24px; }
+  .nav { padding: 0 24px; gap: 18px; }
+  .nav__brand { left: 24px; width: 150px; }
+  .float-note { position: static !important; width: auto !important; max-width: 520px; transform: none !important; margin: 20px 0 0 !important; }
+  .post-row { flex-wrap: wrap !important; flex-direction: row !important; }
+  .post-row > .paper { flex: 1 1 100% !important; width: auto !important; }
+  .post-row img { width: 100% !important; }
+}
+@media (max-width: 720px) {
+  body { background-attachment: scroll; }
+  .page { padding: 16px 16px 48px !important; }
+  .ruled { background-image: repeating-linear-gradient(to bottom, transparent 0 27px, rgba(127, 156, 153, 0.28) 27px 28px); }
+  .nav { height: auto; flex-wrap: wrap; justify-content: flex-start; gap: 10px 18px; padding: 14px 16px 12px; }
+  .nav__brand { position: static; flex: 0 0 100%; width: 150px; height: 32px; }
+  .nav__link { font-size: 12px; }
+  h1.fell { font-size: 32px !important; }
+  .paper { width: auto !important; max-width: 100%; }
+  .paper img { max-width: 100%; }
+  .wrap-narrow { flex-wrap: wrap !important; }
+  .wrap-narrow > p { flex: 1 1 100% !important; }
+  .field { width: auto !important; min-width: 0; }
+  .row > .field { flex: 1 1 150px; }
+  .blank input, .blank select { font-size: 18px; }
+  .draw { width: 100% !important; }
+  .draw svg { width: 100%; height: auto; }
+  .btn { white-space: normal; }
+  .cols { gap: 22px !important; }
+  .page { overflow-x: clip; }
+  .bar-label { width: 78px !important; font-size: 10px; }
+  .hide-narrow { display: none !important; }
 }
 
 /* ---------- motion ---------- */

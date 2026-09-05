@@ -4,7 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Icon, Paper, Sketch, Stamp, Tag } from "@/components/Bits";
 import { useSession } from "@/components/Session";
 import { authClient } from "@/lib/auth/client";
-import { PERSONA_NAMES } from "@/data/mock";
+import { parseInputs, PERSONA_NAMES, STORAGE_KEY } from "@/data/mock";
+import { readKey } from "@/lib/store";
+import { saveWeeklyLog } from "@/db/actions";
 import { explain, MESSAGES } from "@/lib/auth/errors";
 
 type View = "in" | "new" | "forgot";
@@ -27,6 +29,12 @@ const rollPicks = () => [...PERSONA_NAMES].sort(() => Math.random() - 0.5).slice
 /** Only same-site paths may be used as a return address. */
 const safeNext = (n: string | null) => (n && n.startsWith("/") && !n.startsWith("//") ? n : "/track");
 const asView = (v: string | null): View => (v === "new" || v === "forgot" ? v : "in");
+/** Guest sums live in this browser. On sign-in they become this week's log, unless the member already logged this week elsewhere. */
+async function importGuestLedger() {
+  const guest = readKey(STORAGE_KEY);
+  if (!guest) return;
+  try { await saveWeeklyLog(parseInputs(guest), true); } catch { /* the answers stay in the browser; the calculator saves again next time */ }
+}
 
 export default function SignInPage() {
   return <Suspense fallback={null}><SignIn /></Suspense>;
@@ -66,12 +74,14 @@ function SignIn() {
       if (view === "in") {
         const { error: err } = await authClient.signIn.email({ email: em, password, rememberMe: true });
         if (err) { setError(explain(err)); return; }
+        await importGuestLedger();
         router.push(next);
       } else if (view === "new") {
         const { data, error: err } = await authClient.signUp.email({ name: name.trim(), email: em, password, callbackURL: origin + next });
         if (err) { setError(explain(err)); return; }
         // No token means Neon is holding the session until the email is verified.
         if (data && !data.token) { setSent({ kind: "verify", email: em }); return; }
+        await importGuestLedger();
         router.push(next);
       } else {
         const { error: err } = await authClient.requestPasswordReset({ email: em, redirectTo: origin + "/sign-in/reset" });
@@ -131,7 +141,7 @@ function SignIn() {
                       <span className="ty">Name your character</span>
                       <span className="blank"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="anything you like, or take one from below" autoComplete="nickname" maxLength={40} /></span>
                     </label>
-                    <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+                    <div className="row" style={{ gap: 10 }}>
                       {picks.map((p, k) => <Tag key={p} paper on={p === name} rot={k % 2 ? 1.5 : -1.5} onClick={() => setName(p)}>{p}</Tag>)}
                       <button type="button" className="ty link" style={{ fontSize: 10, marginLeft: 4 }} onClick={() => setPicks(rollPicks())}>shuffle</button>
                     </div>

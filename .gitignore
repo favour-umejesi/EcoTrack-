@@ -44,6 +44,10 @@ next-env.d.ts
 # engineering notes stay local
 ENGINEERING.md
 ENGINEERING.pdf
+RAG-embeddings.md
+
+CLAUDE.md
+AGENTS.md
 
 # local env files
 .env
