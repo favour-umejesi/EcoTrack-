@@ -28,7 +28,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-`npm test` runs the engine and rules tests, `npm run lint` runs ESLint, and `npm run build` produces the production build. After changing `src/db/schema.ts`, `npm run db:generate` writes a migration and `npm run db:migrate` applies it to the database in `.env`.
+`npm test` runs the engine and rules tests, `npm run lint` runs ESLint, and `npm run build` produces the production build. After changing `src/db/schema.ts`, `npm run db:generate` writes a migration and `npm run db:migrate` applies it to the database in `.env`. `npm run db:recompute` re-runs the engine over every stored week after a factor update. `npm run e2e` runs the Playwright journeys against the dev server (they create and delete a throwaway account). Put moderator emails in `MODERATOR_EMAILS` to unlock `/community/review`.
 
 The current build runs on mock data and a pure calculation engine; accounts, storage, and the real factor sets come next.
 

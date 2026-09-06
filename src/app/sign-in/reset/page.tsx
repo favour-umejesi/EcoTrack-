@@ -4,7 +4,7 @@ import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon, Paper, Sketch, Stamp } from "@/components/Bits";
 import { authClient } from "@/lib/auth/client";
-import { explain } from "@/lib/auth/errors";
+import { attempt, explain } from "@/lib/auth/errors";
 
 export default function ResetPage() {
   return <Suspense fallback={null}><Reset /></Suspense>;
@@ -28,7 +28,7 @@ function Reset() {
     if (password !== again) { setError("The two passwords do not match."); return; }
     if (!token) return;
     setBusy(true);
-    const { error: err } = await authClient.resetPassword({ newPassword: password, token });
+    const { error: err } = await attempt(authClient.resetPassword({ newPassword: password, token }));
     setBusy(false);
     if (err) { setError(explain(err)); return; }
     router.push("/sign-in?reset=done");

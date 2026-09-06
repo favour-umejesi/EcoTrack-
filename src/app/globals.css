@@ -28,6 +28,10 @@ body {
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 input, textarea, select { font: inherit; color: inherit; }
+/* Keyboard focus is visible everywhere; pointer clicks stay clean. */
+:focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; border-radius: 2px; }
+.blank input:focus-visible, .blank select:focus-visible, .blank textarea:focus-visible { outline: none; }
+button:disabled, .btn:disabled { opacity: 0.55; cursor: default; }
 img { display: block; max-width: 100%; }
 
 /* type */

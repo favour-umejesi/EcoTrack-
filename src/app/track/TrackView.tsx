@@ -22,7 +22,7 @@ type Props = {
   thisWeekLogged: boolean;
 };
 
-const ICONS: Record<string, string> = { commute: "car", electricity: "zap", gas: "coffee", food: "sprout", flights: "bird", clothing: "pencil" };
+const ICONS: Record<string, string> = { commute: "car", electricity: "zap", heating: "sun", gas: "coffee", food: "sprout", flights: "bird", clothing: "pencil" };
 const pct = (n: number) => `${n > 0 ? "+" : "−"}${Math.abs(n)}%`;
 
 export default function TrackView({ history, latest, sincePct, firstMonth, prevMonth, changes, streak, pointsMonth, thisWeek, thisWeekLogged }: Props) {

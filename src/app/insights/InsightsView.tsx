@@ -8,8 +8,9 @@ import { ACTIONS, compareToAverage, compute, fmtKg, fmtT, type Inputs } from "@/
 import { ACTION_LABELS, ALMANAC, ALMANAC_FALLBACK, NOTES, parseInputs, STORAGE_KEY } from "@/data/mock";
 import { useSession } from "@/components/Session";
 import { useHydrated, useLocalValue } from "@/lib/store";
+import { toggleAction } from "@/db/actions";
 
-export default function InsightsView({ memberInputs, title }: { memberInputs: Inputs | null; title: string }) {
+export default function InsightsView({ memberInputs, title, adopted, member }: { memberInputs: Inputs | null; title: string; adopted: string[]; member: boolean }) {
   const router = useRouter();
   const { ready } = useSession();
   const hydrated = useHydrated();
@@ -20,7 +21,15 @@ export default function InsightsView({ memberInputs, title }: { memberInputs: In
   useEffect(() => { if (nothingToShow) router.replace("/calculator"); }, [nothingToShow, router]);
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState<{ answer: string; sources: string[] } | null>(null);
-  const [added, setAdded] = useState<string[]>([]);
+  const [added, setAdded] = useState<string[]>(adopted);
+  const [adoptError, setAdoptError] = useState("");
+  const toggle = async (key: string) => {
+    if (!member) { router.push("/sign-in?next=/insights"); return; }
+    setAdoptError("");
+    const r = await toggleAction(key);
+    if (!r.ok) { setAdoptError(r.error); return; }
+    setAdded((a) => (r.adopted ? [...a.filter((x) => x !== key), key] : a.filter((x) => x !== key)));
+  };
   const r = compute(i);
   const cmp = compareToAverage(r.totalKg, i.country);
   const max = Math.max(...r.lines.map((l) => l.kg), 1);
@@ -41,8 +50,9 @@ export default function InsightsView({ memberInputs, title }: { memberInputs: In
             <span className="fell" style={{ fontSize: "clamp(52px, 14vw, 78px)", lineHeight: 1 }}><CountUp value={r.totalKg} format={fmtT} /></span>
             <div className="stack" style={{ gap: 2, maxWidth: 420 }}>
               <span className="bd" style={{ fontSize: 18 }}>tonnes CO₂e a year, at this pace</span>
+              <span className="ty" style={{ fontSize: 10 }}>likely between {fmtT(r.lowKg)} and {fmtT(r.highKg)} t: every factor is an average with a spread around it</span>
               <span className="bd soft" style={{ fontSize: 15 }}>{cmp.text}</span>
-              <span className="ty" style={{ fontSize: 10 }}>Our World in Data, per-capita CO₂, 2023 (illustrative). Grid factor: {r.grid.label}.</span>
+              <span className="ty" style={{ fontSize: 10 }}>Our World in Data, per-capita CO₂{cmp.avg.year ? ` (${cmp.avg.year})` : ""}. Grid: {r.grid.label}{r.grid.year ? ` (${r.grid.year}, Ember)` : ""}. Factor set {r.factorSet}.</span>
               {r.grid.level !== "country" && <span className="hand rust" style={{ fontSize: 16 }}>no grid figure for this country yet, so the {r.grid.label} stands in.</span>}
             </div>
           </div>
@@ -79,6 +89,8 @@ export default function InsightsView({ memberInputs, title }: { memberInputs: In
 
         <div className="stack" style={{ gap: 18 }}>
           <h2 className="fell" style={{ fontSize: 24 }}>Field notes from the science</h2>
+          {adoptError && <p className="bd rust" style={{ margin: 0, fontSize: 13 }}>{adoptError}</p>}
+          {!member && <p className="ty" style={{ margin: 0, fontSize: 10 }}>Sign in to adopt an action and keep score.</p>}
           {notes.map((n, k) => {
             const saving = ACTIONS[n.action](i);
             const isAdded = added.includes(n.action);
@@ -91,7 +103,7 @@ export default function InsightsView({ memberInputs, title }: { memberInputs: In
                   {n.where && <div className="row" style={{ gap: 8 }}><span className="ty">where to look:</span>{n.where.map((w, j) => <Tag key={w} rot={j % 2 ? 1.5 : -2}>{w}</Tag>)}</div>}
                   <div className="row between" style={{ gap: 8 }}>
                     <span className="hand moss" style={{ fontSize: 17 }}>try {ACTION_LABELS[n.action]}, about {fmtKg(saving)} kg a year</span>
-                    <button className={`btn btn--sm ${isAdded ? "" : "btn--outline"}`} onClick={() => setAdded((a) => a.includes(n.action) ? a.filter((x) => x !== n.action) : [...a, n.action])}>{isAdded ? "Added" : "Add"}</button>
+                    <button className={`btn btn--sm ${isAdded ? "" : "btn--outline"}`} onClick={() => toggle(n.action)}>{isAdded ? "Added" : "Add"}</button>
                   </div>
                 </div>
               </Paper>

@@ -18,7 +18,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { data, isPending } = authClient.useSession();
   const user = data?.user;
   return (
-    <Ctx.Provider value={{ mode: user ? "member" : "guest", ready: !isPending, signOut: async () => { await authClient.signOut(); }, persona: { name: user?.name || "Quiet Fern" } }}>
+    <Ctx.Provider value={{ mode: user ? "member" : "guest", ready: !isPending, signOut: async () => { try { await authClient.signOut(); } catch { /* already signed out */ } }, persona: { name: user?.name || "Quiet Fern" } }}>
       {children}
     </Ctx.Provider>
   );

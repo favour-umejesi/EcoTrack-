@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth/client";
 import { parseInputs, PERSONA_NAMES, STORAGE_KEY } from "@/data/mock";
 import { readKey } from "@/lib/store";
 import { saveWeeklyLog } from "@/db/actions";
-import { explain, MESSAGES } from "@/lib/auth/errors";
+import { attempt, explain, MESSAGES } from "@/lib/auth/errors";
 
 type View = "in" | "new" | "forgot";
 type Sent = { kind: "verify" | "reset"; email: string };
@@ -72,19 +72,19 @@ function SignIn() {
     setBusy(true);
     try {
       if (view === "in") {
-        const { error: err } = await authClient.signIn.email({ email: em, password, rememberMe: true });
+        const { error: err } = await attempt(authClient.signIn.email({ email: em, password, rememberMe: true }));
         if (err) { setError(explain(err)); return; }
         await importGuestLedger();
         router.push(next);
       } else if (view === "new") {
-        const { data, error: err } = await authClient.signUp.email({ name: name.trim(), email: em, password, callbackURL: origin + next });
+        const { data, error: err } = await attempt<{ token: string | null }>(authClient.signUp.email({ name: name.trim(), email: em, password, callbackURL: origin + next }));
         if (err) { setError(explain(err)); return; }
         // No token means Neon is holding the session until the email is verified.
         if (data && !data.token) { setSent({ kind: "verify", email: em }); return; }
         await importGuestLedger();
         router.push(next);
       } else {
-        const { error: err } = await authClient.requestPasswordReset({ email: em, redirectTo: origin + "/sign-in/reset" });
+        const { error: err } = await attempt(authClient.requestPasswordReset({ email: em, redirectTo: origin + "/sign-in/reset" }));
         if (err) { setError(explain(err)); return; }
         setSent({ kind: "reset", email: em });
       }
@@ -98,9 +98,9 @@ function SignIn() {
     setBusy(true);
     setError("");
     const origin = window.location.origin;
-    const { error: err } = sent.kind === "verify"
-      ? await authClient.sendVerificationEmail({ email: sent.email, callbackURL: origin + next })
-      : await authClient.requestPasswordReset({ email: sent.email, redirectTo: origin + "/sign-in/reset" });
+    const { error: err } = await attempt(sent.kind === "verify"
+      ? authClient.sendVerificationEmail({ email: sent.email, callbackURL: origin + next })
+      : authClient.requestPasswordReset({ email: sent.email, redirectTo: origin + "/sign-in/reset" }));
     setBusy(false);
     if (err) setError(explain(err));
   };

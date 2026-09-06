@@ -3,8 +3,16 @@
  * Kept apart from the database so they can be tuned and tested on their own (ENGINEERING.md, section 8).
  */
 
-export const POINTS = { logWeek: 10 } as const;
-export const REASON_LABELS: Record<string, string> = { log_week: "Logged a week" };
+export const POINTS = { logWeek: 10, fourWeeks: 40, adoptAction: 50, sharePost: 25, challengeDone: 30 } as const;
+export const REASON_LABELS: Record<string, string> = {
+  log_week: "Logged a week",
+  four_weeks: "Logged four weeks in a row",
+  adopt_action: "Adopted an action",
+  share_post: "Shared with the community",
+  challenge_done: "Completed the weekly challenge",
+};
+/** Posting limits. Counted from the database so they hold across server instances. */
+export const LIMITS = { postsPerDay: 5, reportsPerHour: 10, photosPerPost: 4, photoBytes: 8 * 1024 * 1024, newAccountLinkDays: 7 } as const;
 
 const DAY = 86_400_000;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

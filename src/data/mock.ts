@@ -1,14 +1,11 @@
 import type { Inputs, Category } from "@/lib/engine";
 
-/** A blank week: nothing pre-filled, so every number on screen is one the person typed. The calculator picks the country from the browser locale. */
-export const DEFAULT_INPUTS: Inputs = {
-  country: "gb", mode: "car", fuel: "petrol", commuteKm: 0, electricityKwh: 0, gasQty: 0, gasType: "lpg",
-  meatMeals: 0, flights: 0, flightClass: "short", clothingItems: 0, secondhandItems: 0, distanceUnit: "mi", gasUnit: "kg",
-};
+import { DEFAULT_INPUTS, normalise } from "@/lib/engine";
+export { DEFAULT_INPUTS };
 
 export const STORAGE_KEY = "ecotrack.inputs";
 export function parseInputs(raw: string | null): Inputs {
-  try { if (raw) return { ...DEFAULT_INPUTS, ...JSON.parse(raw) }; } catch {}
+  try { if (raw) return normalise(JSON.parse(raw)); } catch {}
   return DEFAULT_INPUTS;
 }
 
@@ -18,6 +15,7 @@ export const ACTION_LABELS = {
   meatFreeDay: "meat-free Mondays",
   thriftTwoOfThree: "thrift two of every three",
   laundryOffPeak: "laundry off-peak",
+  heatPump: "a heat pump instead of the gas boiler",
 } as const;
 
 /** Field notes from the Climate Almanac. In the real app these come from retrieval over the curated library; here they are hand-written stand-ins with real sources. */
@@ -27,6 +25,7 @@ export const NOTES: Note[] = [
   { category: "clothing", kicker: "Clothing", text: "A new pair of jeans costs the air about 33 kg CO₂e and a great deal of water; a second-hand pair costs almost nothing. Thrift first, mend second, buy new last.", source: "Levi Strauss & Co. jeans life-cycle assessment (2015); Ellen MacArthur Foundation, A New Textiles Economy (2017)", action: "thriftTwoOfThree", where: ["Vinted", "Depop", "local charity shop"] },
   { category: "electricity", kicker: "Electricity", text: "Grids are cleaning up fast where coal is leaving, so each kilowatt-hour emits less than a decade ago. Using less at the evening peak, when gas plants fill the gap, is still the cheapest cut.", source: "Ember, Electricity Data Explorer (2025)", action: "laundryOffPeak" },
   { category: "flights", kicker: "Flights", text: "One long-haul return flight can outweigh a year of commuting. Where a train exists, it usually emits a tenth as much per passenger for the same journey.", source: "UK Government greenhouse gas conversion factors (2025)", action: "twoBusDays" },
+  { category: "heating", kicker: "Heating", text: "In a cold climate the boiler is usually the biggest thing in the house. A heat pump delivers close to three units of heat for each unit of electricity in measured British homes, so on a cleaning grid it beats gas even before the grid finishes cleaning up.", source: "Energy Systems Catapult, Electrification of Heat interim report (2023); IEA, The Future of Heat Pumps (2022)", action: "heatPump" },
   { category: "gas", kicker: "Cooking gas", text: "Bottled gas burns cleaner than charcoal or kerosene, and an induction hob on a clean grid cleaner still. The bigger lever is usually the meal, not the flame.", source: "IPCC AR6 Working Group III, Chapter 9: Buildings (2022)", action: "meatFreeDay" },
 ];
 

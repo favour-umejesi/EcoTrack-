@@ -4,11 +4,11 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getAuth } from "@/lib/auth/server";
 import { getDb } from "@/db";
-import { personas, pointsLedger, weeklyLogs } from "@/db/schema";
+import { personas, pointsLedger, userActions, weeklyLogs } from "@/db/schema";
 import { compute } from "@/lib/engine";
 import { inputsSchema } from "@/lib/inputs";
-import { POINTS, weekStart } from "@/lib/rules";
-import { CHARACTERS } from "@/data/mock";
+import { POINTS, streak, weekStart } from "@/lib/rules";
+import { ACTION_LABELS, CHARACTERS } from "@/data/mock";
 
 /**
  * Write-side entry points, callable from client components. Each one is an untrusted POST: it re-checks the
@@ -47,6 +47,13 @@ export async function saveWeeklyLog(raw: unknown, keepExisting = false): Promise
     if (saved.length) {
       const awarded = await db.insert(pointsLedger).values({ userId: user.id, points: POINTS.logWeek, reason: "log_week", ref: week }).onConflictDoNothing().returning({ id: pointsLedger.id });
       pointsAwarded = awarded.length ? POINTS.logWeek : 0;
+      // Every fourth consecutive week earns a bonus, once per milestone week.
+      const weeks = await db.select({ weekStart: weeklyLogs.weekStart }).from(weeklyLogs).where(eq(weeklyLogs.userId, user.id));
+      const s = streak(weeks.map((w) => w.weekStart), new Date());
+      if (s.weeks > 0 && s.weeks % 4 === 0) {
+        const bonus = await db.insert(pointsLedger).values({ userId: user.id, points: POINTS.fourWeeks, reason: "four_weeks", ref: `streak-${week}` }).onConflictDoNothing().returning({ id: pointsLedger.id });
+        if (bonus.length) pointsAwarded += POINTS.fourWeeks;
+      }
     }
     revalidatePath("/track");
     revalidatePath("/profile");
@@ -88,5 +95,29 @@ export async function deleteWeeklyLog(weekStart: unknown): Promise<DeleteLogResu
     return { ok: true, removed: gone.length > 0 };
   } catch (e) {
     return fail(explainError(e, "Could not remove that week. Try again in a moment."));
+  }
+}
+
+export type ToggleActionResult = { ok: true; adopted: boolean; pointsAwarded: number } | Fail;
+
+/** Adopts or un-adopts an action from the insights catalog. Points come once, the first time. */
+export async function toggleAction(action: unknown): Promise<ToggleActionResult> {
+  try {
+    const user = await currentUser();
+    if (!user) return fail("Sign in to adopt an action.");
+    const key = z.enum(Object.keys(ACTION_LABELS) as [string, ...string[]]).parse(action);
+    const db = getDb();
+    const gone = await db.delete(userActions).where(and(eq(userActions.userId, user.id), eq(userActions.action, key))).returning({ id: userActions.id });
+    let pointsAwarded = 0;
+    if (!gone.length) {
+      await db.insert(userActions).values({ userId: user.id, action: key }).onConflictDoNothing();
+      const awarded = await db.insert(pointsLedger).values({ userId: user.id, points: POINTS.adoptAction, reason: "adopt_action", ref: key }).onConflictDoNothing().returning({ id: pointsLedger.id });
+      pointsAwarded = awarded.length ? POINTS.adoptAction : 0;
+    }
+    revalidatePath("/insights");
+    revalidatePath("/profile");
+    return { ok: true, adopted: !gone.length, pointsAwarded };
+  } catch (e) {
+    return fail(explainError(e, "Could not save that. Try again in a moment."));
   }
 }

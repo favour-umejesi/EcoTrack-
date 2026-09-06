@@ -1,133 +1,173 @@
 /**
- * Pure calculation engine. No framework, no database.
- * Every number the UI shows comes from here: quantity × factor × annualisation.
- * Factors are ILLUSTRATIVE placeholders in the shape the real, generated factor set will have.
+ * The calculation engine. Every number the UI shows comes from here: quantity × published factor × annualisation.
+ * Factors are transcribed with a citation each in src/data/factors.ts; grid intensities and per-capita averages are
+ * generated from Ember and Our World in Data by scripts/build-factors.ts. The engine stays metric; units convert at the UI edge.
  */
+import { COUNTRY_BY_CODE } from "@/data/countries";
+import { FACTORS, FACTOR_VERSION } from "@/data/factors";
+import { GRID, GRID_CONTINENT, GRID_WORLD } from "@/data/grid.generated";
+import { PER_CAPITA, PER_CAPITA_CONTINENT, PER_CAPITA_WORLD } from "@/data/averages.generated";
+import type { DistanceUnit, GasUnit } from "@/lib/units";
+
 export type Mode = "car" | "bus" | "train" | "bike" | "walk";
-export type Fuel = "petrol" | "diesel" | "electric";
+export type Fuel = "petrol" | "diesel" | "hybrid" | "electric";
+export type CarSize = "small" | "medium" | "large";
 export type GasType = "lpg" | "natural";
+export type HeatingType = "none" | "gas" | "oil" | "electric" | "heatpump" | "wood";
+export type Diet = "vegan" | "vegetarian" | "pescatarian" | "low_meat" | "average" | "high_meat";
 /** Flights are classed by length, not by whether they cross a border: a short hop can be international and a long haul can be domestic. */
 export type FlightClass = "short" | "medium" | "long";
-import { COUNTRY_BY_CODE, type Continent } from "@/data/countries";
-import type { DistanceUnit, GasUnit } from "@/lib/units";
+export type Cabin = "economy" | "premium" | "business";
 
 export type Inputs = {
   country: string;
+  household: number;          // people sharing the electricity, gas and heating bills
   mode: Mode;
   fuel: Fuel;
-  commuteKm: number;        // per commute day, both directions
-  electricityKwh: number;   // per month
-  gasQty: number;           // kg of LPG or m³ of natural gas, per month
+  carSize: CarSize;
+  commuteKm: number;          // per commute day, both directions
+  commuteDays: number;        // days a week
+  electricityKwh: number;     // per month, whole home
+  gasQty: number;             // cooking gas per month: kg of LPG or m³ of natural gas
   gasType: GasType;
-  meatMeals: number;        // per week
-  flights: number;          // per 12 months
+  heatingType: HeatingType;
+  heatingQty: number;         // per month: kWh of gas, litres of oil, kg of wood. Electric heating and heat pumps sit inside the electricity figure.
+  diet: Diet;
+  meatMeals?: number;         // legacy field from logs saved before the diet profile existed
+  flights: number;            // one-way flights in the last 12 months
   flightClass: FlightClass;
-  clothingItems: number;    // new items per month
-  secondhandItems: number;  // of which second-hand
+  cabin: Cabin;
+  clothingItems: number;      // new items per month
+  secondhandItems: number;    // of which second-hand
   distanceUnit: DistanceUnit; // how the user prefers to see distance; storage stays in km
   gasUnit: GasUnit;           // how the user prefers to see gas; storage stays in kg or m³
 };
 
+/** A blank week: nothing pre-filled, so every number on screen is one the person typed. */
+export const DEFAULT_INPUTS: Inputs = {
+  country: "gb", household: 1, mode: "car", fuel: "petrol", carSize: "medium", commuteKm: 0, commuteDays: 5,
+  electricityKwh: 0, gasQty: 0, gasType: "lpg", heatingType: "none", heatingQty: 0, diet: "average",
+  flights: 0, flightClass: "short", cabin: "economy", clothingItems: 0, secondhandItems: 0, distanceUnit: "mi", gasUnit: "kg",
+};
+
+/** Fills in anything a log from an older version lacks, and maps the old meat-meals figure onto a diet profile. */
+export function normalise(raw: Partial<Inputs> | null | undefined): Inputs {
+  const i: Inputs = { ...DEFAULT_INPUTS, ...(raw ?? {}) };
+  if (raw && !raw.diet && typeof raw.meatMeals === "number") {
+    i.diet = raw.meatMeals <= 0 ? "vegetarian" : raw.meatMeals <= 3 ? "low_meat" : raw.meatMeals <= 7 ? "average" : "high_meat";
+  }
+  if (!(i.household >= 1)) i.household = 1;
+  return i;
+}
+
+const WEEKS_PER_YEAR = 46; // 52 less about six weeks of leave and public holidays
+const F = FACTORS;
+const val = (c: { value: number | null }) => c.value ?? 0;
+
 export const FACTOR_SET = {
-  version: "2025 (illustrative)",
+  version: FACTOR_VERSION,
   sources: [
-    "UK Government greenhouse gas conversion factors 2025",
-    "Ember electricity data 2025",
-    "Poore and Nemecek, Science 2018, via Our World in Data",
-    "Levi Strauss jeans life-cycle assessment 2015",
+    "UK DESNZ greenhouse gas conversion factors 2025",
+    `Ember yearly electricity data (${GRID_WORLD.year})`,
+    "Scarborough et al. 2023, Nature Food (diets)",
+    "Levi Strauss 501 life-cycle assessment 2015 and Farrant et al. 2010 (clothing)",
+    `Our World in Data CO₂ per capita (${PER_CAPITA_WORLD.year})`,
   ],
-  commuteDaysPerYear: 230,
-  carPerKm: { petrol: 0.17, diesel: 0.17, electric: 0.05 } as Record<Fuel, number>,
-  busPerKm: 0.1,
-  trainPerKm: 0.035,
-  /** Country grid intensities, kg CO₂e per kWh. The generated factor set covers every country in Ember's data; these are samples. */
-  gridPerKwh: { gb: 0.2, fr: 0.05, de: 0.35, us: 0.37, cn: 0.55, in: 0.7, ng: 0.43, ca: 0.12, au: 0.55, jp: 0.45, za: 0.9, ke: 0.1, br: 0.1, no: 0.03, pl: 0.65, mx: 0.4, id: 0.7, eg: 0.45, gh: 0.35 } as Record<string, number>,
-  /** Fallback when a country is missing from the set. Illustrative continent averages, then the world. */
-  gridByContinent: { Africa: 0.45, Asia: 0.55, Europe: 0.28, "North America": 0.38, "South America": 0.2, Oceania: 0.5 } as Record<Continent, number>,
-  gridWorld: 0.48,
-  lpgPerKg: 2.94,
-  naturalGasPerM3: 2.0,
-  meatMealKg: 3.5,
-  /** Representative one-way distance per class: under 3 hours, 3 to 6 hours, over 6 hours. */
-  flightKm: { short: 900, medium: 3000, long: 7500 } as Record<FlightClass, number>,
-  /** Per passenger-km, economy. Short flights emit more per km because take-off and climb dominate. */
-  flightPerKm: { short: 0.2, medium: 0.15, long: 0.15 } as Record<FlightClass, number>,
-  clothingNewKg: 15,
-  clothingSecondhandKg: 0.5,
 };
 
-/** Per-capita CO₂ averages in tonnes, illustrative, in the shape of the Our World in Data series. */
-export const COUNTRY_AVERAGES: Record<string, { name: string; tonnes: number }> = {
-  gb: { name: "United Kingdom", tonnes: 4.7 },
-  us: { name: "United States", tonnes: 14.3 },
-  fr: { name: "France", tonnes: 4.1 },
-  de: { name: "Germany", tonnes: 7.1 },
-  ca: { name: "Canada", tonnes: 14.0 },
-  au: { name: "Australia", tonnes: 14.5 },
-  jp: { name: "Japan", tonnes: 8.0 },
-  cn: { name: "China", tonnes: 8.4 },
-  in: { name: "India", tonnes: 2.1 },
-  ng: { name: "Nigeria", tonnes: 0.6 },
-  za: { name: "South Africa", tonnes: 6.7 }, br: { name: "Brazil", tonnes: 2.2 }, ke: { name: "Kenya", tonnes: 0.4 }, mx: { name: "Mexico", tonnes: 3.7 }, id: { name: "Indonesia", tonnes: 2.6 }, eg: { name: "Egypt", tonnes: 2.3 }, gh: { name: "Ghana", tonnes: 0.7 }, no: { name: "Norway", tonnes: 7.5 }, pl: { name: "Poland", tonnes: 7.7 },
-  world: { name: "the world", tonnes: 4.7 },
-};
-export const CONTINENT_AVERAGES: Record<Continent, number> = { Africa: 1.0, Asia: 4.7, Europe: 6.5, "North America": 10.0, "South America": 2.5, Oceania: 10.0 };
+export type Resolved = { value: number; label: string; level: "country" | "continent" | "world"; year?: number };
 
-export type Resolved = { value: number; label: string; level: "country" | "continent" | "world" };
-/** Country first, then its continent, then the world. The label says which was used so the UI can be honest about it. */
+/** Grid intensity in kg CO₂e per kWh: the country's own figure, else its continent's, else the world's. */
 export function resolveGrid(country: string): Resolved {
-  if (F.gridPerKwh[country] !== undefined) return { value: F.gridPerKwh[country], label: COUNTRY_BY_CODE[country]?.name ?? country, level: "country" };
-  const c = COUNTRY_BY_CODE[country]?.continent;
-  if (c) return { value: F.gridByContinent[c], label: `${c} average`, level: "continent" };
-  return { value: F.gridWorld, label: "world average", level: "world" };
+  const c = COUNTRY_BY_CODE[country];
+  const g = GRID[country];
+  if (c && g) return { value: g.g / 1000, label: c.name, level: "country", year: g.year };
+  if (c) return { value: GRID_CONTINENT[c.continent] / 1000, label: `${c.continent} average`, level: "continent" };
+  return { value: GRID_WORLD.g / 1000, label: "world average", level: "world", year: GRID_WORLD.year };
 }
+
+/** Per-capita CO₂ in tonnes a year, same fallback order. */
 export function resolveAverage(country: string): Resolved & { name: string } {
-  const a = COUNTRY_AVERAGES[country];
-  if (a) return { value: a.tonnes, label: a.name, name: a.name, level: "country" };
-  const c = COUNTRY_BY_CODE[country]?.continent;
-  if (c) return { value: CONTINENT_AVERAGES[c], label: `${c} average`, name: `${c}`, level: "continent" };
-  return { value: COUNTRY_AVERAGES.world.tonnes, label: "world average", name: "the world", level: "world" };
+  const c = COUNTRY_BY_CODE[country];
+  const p = PER_CAPITA[country];
+  if (c && p) return { value: p.t, label: c.name, name: c.name, level: "country", year: p.year };
+  if (c) return { value: PER_CAPITA_CONTINENT[c.continent], label: `${c.continent} average`, name: c.continent, level: "continent" };
+  return { value: PER_CAPITA_WORLD.t, label: "world average", name: "world", level: "world", year: PER_CAPITA_WORLD.year };
 }
 
-export type Category = "commute" | "electricity" | "gas" | "food" | "flights" | "clothing";
-export type Line = { key: Category; label: string; kg: number; note?: string };
-export type Result = { totalKg: number; lines: Line[]; biggest: Line; factorSet: string; grid: Resolved };
+export type Category = "commute" | "electricity" | "heating" | "gas" | "food" | "flights" | "clothing";
+export type Line = { key: Category; label: string; kg: number; low: number; high: number; note?: string };
+export type Result = { totalKg: number; lowKg: number; highKg: number; lines: Line[]; biggest: Line; factorSet: string; grid: Resolved };
 
-const F = FACTOR_SET;
+/** Rough uncertainty per category, as a fraction. Factors are averages; a person's true figure sits in a band around them. */
+export const BAND: Record<Category, number> = { commute: 0.15, electricity: 0.1, heating: 0.15, gas: 0.1, food: 0.3, flights: 0.25, clothing: 0.5 };
 
-export function compute(i: Inputs): Result {
-  const g = resolveGrid(i.country); const grid = g.value;
-  const perKm = i.mode === "car" ? (i.fuel === "electric" ? grid * 0.17 : F.carPerKm[i.fuel]) : i.mode === "bus" ? F.busPerKm : i.mode === "train" ? F.trainPerKm : 0;
-  const commute = i.commuteKm * F.commuteDaysPerYear * perKm;
-  const electricity = i.electricityKwh * 12 * grid;
-  const gas = i.gasQty * 12 * (i.gasType === "lpg" ? F.lpgPerKg : F.naturalGasPerM3);
-  const food = i.meatMeals * 52 * F.meatMealKg;
-  const flights = i.flights * F.flightKm[i.flightClass] * F.flightPerKm[i.flightClass];
+/** kg CO₂e per km for the chosen way of getting to work. Electric cars use the person's own grid. */
+export function commutePerKm(i: Inputs, grid: number): number {
+  if (i.mode === "car") return i.fuel === "electric" ? val(F.carElectricKwhPerKm) * grid : val(F.car[i.carSize][i.fuel]);
+  if (i.mode === "bus") return val(F.bus);
+  if (i.mode === "train") return val(F.rail);
+  return 0;
+}
+
+export function compute(raw: Partial<Inputs>): Result {
+  const i = normalise(raw);
+  const g = resolveGrid(i.country);
+  const grid = g.value;
+  const hh = i.household;
+  const commute = i.commuteKm * i.commuteDays * WEEKS_PER_YEAR * commutePerKm(i, grid);
+  const electricity = (i.electricityKwh * 12 * grid) / hh;
+  const gas = (i.gasQty * 12 * (i.gasType === "lpg" ? val(F.lpgPerKg) : val(F.naturalGasPerM3))) / hh;
+  const heatingPerUnit = i.heatingType === "gas" ? val(F.naturalGasPerKwh) : i.heatingType === "oil" ? val(F.heatingOilPerLitre) : i.heatingType === "wood" ? val(F.woodPerKg) : 0;
+  const heating = (i.heatingQty * 12 * heatingPerUnit) / hh;
+  const food = val(F.diet[i.diet]) * 365;
+  // DESNZ has no premium-economy row for short flights, so premium falls back to economy there.
+  const perPassengerKm = F.flight[i.flightClass][i.cabin].value ?? val(F.flight[i.flightClass].economy);
+  const flights = i.flights * val(F.flightRepresentativeKm[i.flightClass]) * perPassengerKm;
   const newItems = Math.max(0, i.clothingItems - i.secondhandItems);
-  const clothing = newItems * 12 * F.clothingNewKg + Math.min(i.secondhandItems, i.clothingItems) * 12 * F.clothingSecondhandKg;
-  const raw: Line[] = [
-    { key: "commute", label: "Commute", kg: commute },
-    { key: "electricity", label: "Electricity", kg: electricity },
-    { key: "flights", label: "Flights", kg: flights },
-    { key: "food", label: "Food", kg: food },
-    { key: "clothing", label: "Clothing", kg: clothing },
-    { key: "gas", label: "Cooking gas", kg: gas },
+  const clothing = newItems * 12 * val(F.clothing.newItem) + Math.min(i.secondhandItems, i.clothingItems) * 12 * val(F.clothing.secondhandItem);
+  const raw_: [Category, string, number, string?][] = [
+    ["commute", "Commute", commute],
+    ["electricity", "Electricity", electricity],
+    ["heating", "Heating", heating, i.heatingType === "electric" || i.heatingType === "heatpump" ? "counted in electricity" : undefined],
+    ["flights", "Flights", flights],
+    ["food", "Food", food],
+    ["clothing", "Clothing", clothing],
+    ["gas", "Cooking gas", gas],
   ];
-  const lines = raw.map((l) => ({ ...l, kg: Math.round(l.kg) })).sort((a, b) => b.kg - a.kg);
-  const totalKg = lines.reduce((s, l) => s + l.kg, 0);
-  return { totalKg, lines, biggest: lines[0], factorSet: F.version, grid: g };
+  const lines: Line[] = raw_
+    .map(([key, label, kg, note]) => ({ key, label, kg: Math.round(kg), low: Math.round(kg * (1 - BAND[key])), high: Math.round(kg * (1 + BAND[key])), note }))
+    .sort((a, b) => b.kg - a.kg);
+  const sum = (k: "kg" | "low" | "high") => lines.reduce((s, l) => s + l[k], 0);
+  return { totalKg: sum("kg"), lowKg: sum("low"), highKg: sum("high"), lines, biggest: lines[0], factorSet: FACTOR_VERSION, grid: g };
 }
 
-/** Savings formulas for catalog actions, in kg per year, computed from the user's own inputs. */
+/** Savings formulas for catalog actions, in kg per year, computed from the user's own inputs. Never negative. */
 export const ACTIONS = {
-  twoBusDays: (i: Inputs) => {
+  twoBusDays: (raw: Partial<Inputs>) => {
+    const i = normalise(raw);
     if (i.mode !== "car") return 0;
-    const carKm = F.carPerKm[i.fuel];
-    return Math.round(i.commuteKm * F.commuteDaysPerYear * (2 / 5) * (carKm - F.busPerKm));
+    const grid = resolveGrid(i.country).value;
+    return Math.max(0, Math.round(i.commuteKm * Math.min(2, i.commuteDays) * WEEKS_PER_YEAR * (commutePerKm(i, grid) - val(F.bus))));
   },
-  meatFreeDay: (i: Inputs) => Math.round((i.meatMeals / 7) * 52 * F.meatMealKg),
-  thriftTwoOfThree: (i: Inputs) => Math.round(Math.max(0, i.clothingItems - i.secondhandItems) * 12 * (2 / 3) * (F.clothingNewKg - F.clothingSecondhandKg)),
-  laundryOffPeak: (i: Inputs) => Math.round(i.electricityKwh * 12 * 0.15 * 0.25 * resolveGrid(i.country).value),
+  meatFreeDay: (raw: Partial<Inputs>) => {
+    const i = normalise(raw);
+    return Math.max(0, Math.round((val(F.diet[i.diet]) - val(F.diet.vegetarian)) * 52));
+  },
+  thriftTwoOfThree: (raw: Partial<Inputs>) => {
+    const i = normalise(raw);
+    return Math.max(0, Math.round(Math.max(0, i.clothingItems - i.secondhandItems) * 12 * (2 / 3) * (val(F.clothing.newItem) - val(F.clothing.secondhandItem))));
+  },
+  laundryOffPeak: (raw: Partial<Inputs>) => {
+    const i = normalise(raw);
+    return Math.max(0, Math.round((i.electricityKwh * 12 * 0.15 * 0.25 * resolveGrid(i.country).value) / i.household));
+  },
+  heatPump: (raw: Partial<Inputs>) => {
+    const i = normalise(raw);
+    if (i.heatingType !== "gas") return 0;
+    const grid = resolveGrid(i.country).value;
+    return Math.max(0, Math.round((i.heatingQty * 12 * (val(F.naturalGasPerKwh) - grid / val(F.heatPumpCop))) / i.household));
+  },
 };
 
 export const fmtKg = (kg: number) => kg.toLocaleString("en-GB");
@@ -137,5 +177,5 @@ export function compareToAverage(totalKg: number, country: string) {
   const avg = resolveAverage(country);
   const pct = Math.round(((totalKg / 1000 - avg.value) / avg.value) * 100);
   const who = avg.level === "country" ? `the ${avg.name} average` : avg.level === "continent" ? `the ${avg.name} average (no country figure yet)` : "the world average";
-  return { avg, pct, text: pct >= 0 ? `About ${pct}% above ${who} of ${avg.value} t per person.` : `About ${Math.abs(pct)}% below ${who} of ${avg.value} t per person.` };
+  return { avg, pct, text: pct >= 0 ? `About ${pct}% above ${who} of ${avg.value.toFixed(1)} t per person.` : `About ${Math.abs(pct)}% below ${who} of ${avg.value.toFixed(1)} t per person.` };
 }

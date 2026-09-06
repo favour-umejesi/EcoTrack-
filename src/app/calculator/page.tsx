@@ -80,25 +80,51 @@ function CalculatorForm() {
             <div className="row" style={{ gap: 6, alignSelf: "flex-end", paddingBottom: 6 }}>
               {(["km", "mi"] as DistanceUnit[]).map((u) => <button key={u} className={`seg ${i.distanceUnit === u ? "seg--on" : ""}`} style={{ padding: "4px 9px", fontSize: 10 }} onClick={() => set("distanceUnit", u)}>{UNIT_LABEL[u]}</button>)}
             </div>
-            {i.mode === "car" && <Select label="Fuel" value={i.fuel} options={[["petrol", "Petrol"], ["diesel", "Diesel"], ["electric", "Electric"]]} onChange={(v) => set("fuel", v as Inputs["fuel"])} width={200} />}
+            <Field label="Commute days a week" value={i.commuteDays} unit="days" onChange={(v) => set("commuteDays", Math.min(7, Math.max(0, Number(v))))} width={170} />
           </div>
+          {i.mode === "car" && (
+            <div className="row" style={{ gap: 28, alignItems: "flex-end" }}>
+              <Select label="Fuel" value={i.fuel} options={[["petrol", "Petrol"], ["diesel", "Diesel"], ["hybrid", "Hybrid"], ["electric", "Electric"]]} onChange={(v) => set("fuel", v as Inputs["fuel"])} width={180} />
+              {i.fuel !== "electric" && (
+                <div className="stack" style={{ gap: 4 }}>
+                  <span className="ty" style={{ fontSize: 11, textTransform: "uppercase" }}>Car size</span>
+                  <div className="row" style={{ gap: 6 }}>
+                    {(["small", "medium", "large"] as const).map((sz) => <button key={sz} className={`seg ${i.carSize === sz ? "seg--on" : ""}`} style={{ padding: "5px 10px", fontSize: 11 }} onClick={() => set("carSize", sz)}>{sz}</button>)}
+                  </div>
+                </div>
+              )}
+              {i.fuel === "electric" && <span className="ty" style={{ fontSize: 10, paddingBottom: 8 }}>charged on the {r.grid.label} grid</span>}
+            </div>
+          )}
 
           <Section numeral="II." title="At home" />
           <div className="row" style={{ gap: 28 }}>
-            <Field label="Electricity each month" value={i.electricityKwh} unit="kWh" onChange={num("electricityKwh")} width={230} />
+            <Field label="People in your home" value={i.household} unit="people" onChange={(v) => set("household", Math.min(20, Math.max(1, Number(v) || 1)))} width={170} min={1} />
+            <Field label="Electricity each month" value={i.electricityKwh} unit="kWh" onChange={num("electricityKwh")} width={200} />
+            <Select label="Heating" value={i.heatingType} options={[["none", "None, or not sure"], ["gas", "Gas boiler"], ["oil", "Oil boiler"], ["electric", "Electric heaters"], ["heatpump", "Heat pump"], ["wood", "Wood stove"]]} onChange={(v) => { set("heatingType", v as Inputs["heatingType"]); if (v === "none" || v === "electric" || v === "heatpump") set("heatingQty", 0); }} width={200} />
+            {(i.heatingType === "gas" || i.heatingType === "oil" || i.heatingType === "wood") && (
+              <Field label={`Heating ${i.heatingType} each month`} value={i.heatingQty} unit={i.heatingType === "gas" ? "kWh" : i.heatingType === "oil" ? "litres" : "kg"} onChange={num("heatingQty")} width={200} />
+            )}
+            {(i.heatingType === "electric" || i.heatingType === "heatpump") && <span className="ty" style={{ fontSize: 10, alignSelf: "flex-end", paddingBottom: 8 }}>counted in your electricity figure</span>}
+          </div>
+          <div className="row" style={{ gap: 28 }}>
             <Field label="Cooking gas each month" value={tidy(gasShown)} unit={UNIT_LABEL[i.gasUnit]} onChange={setGasShown} width={200} />
             <Select label="Gas unit" value={i.gasUnit} options={gasUnits.map((u) => [u, UNIT_LABEL[u]] as [string, string])} onChange={(v) => set("gasUnit", v as GasUnit)} width={130} />
             <Select label="Gas type" value={i.gasType} options={[["lpg", "LPG bottle"], ["natural", "Piped natural gas"]]} onChange={(v) => setGasType(v as Inputs["gasType"])} width={190} />
+            <span className="ty" style={{ fontSize: 10, alignSelf: "flex-end", paddingBottom: 8 }}>bills are shared across the people in your home</span>
           </div>
 
           <Section numeral="III." title="Food and travel" />
           <div className="row" style={{ gap: 28 }}>
-            <Field label="Meat meals each week" value={i.meatMeals} unit="meals" onChange={num("meatMeals")} width={230} />
+            <Select label="What you mostly eat" value={i.diet} options={[["vegan", "Vegan"], ["vegetarian", "Vegetarian"], ["pescatarian", "Fish, no meat"], ["low_meat", "Meat now and then"], ["average", "Meat most days"], ["high_meat", "Meat at most meals"]]} onChange={(v) => set("diet", v as Inputs["diet"])} width={230} />
             <Field label="Flights in the last 12 months" value={i.flights} unit="flights" onChange={num("flights")} width={230} />
+          </div>
+          <div className="row" style={{ gap: 28 }}>
             <div className="stack" style={{ gap: 4 }}>
               <Select label="Typical flight" value={i.flightClass} options={[["short", "Short flight"], ["medium", "Medium flight"], ["long", "Long flight"]]} onChange={(v) => set("flightClass", v as Inputs["flightClass"])} width={200} />
-              <span className="ty" style={{ fontSize: 10 }}>short is under 3 hours, medium 3 to 6, long over 6</span>
+              <span className="ty" style={{ fontSize: 10 }}>short is under 3 hours, medium 3 to 6, long over 6. one-way legs.</span>
             </div>
+            <Select label="Cabin" value={i.cabin} options={[["economy", "Economy"], ["premium", "Premium economy"], ["business", "Business"]]} onChange={(v) => set("cabin", v as Inputs["cabin"])} width={190} />
           </div>
 
           <Section numeral="IV." title="What you wear" />
@@ -117,9 +143,10 @@ function CalculatorForm() {
                 <span className="fell" style={{ fontSize: "clamp(40px, 10vw, 54px)", lineHeight: 1 }}><CountUp value={r.totalKg} format={fmtT} duration={700} /></span>
                 <span className="bd" style={{ fontSize: 16 }}>tonnes CO₂e a year</span>
               </div>
+              {r.totalKg > 0 && <span className="ty" style={{ fontSize: 10 }}>likely between {fmtT(r.lowKg)} and {fmtT(r.highKg)} t, given the spread in the factors</span>}
               {r.lines.map((l) => (
                 <div key={l.key} className="ledger-row">
-                  <span className="ty">{l.label}</span><span className="lead" /><span className="bd" style={{ fontSize: 15 }}><CountUp value={l.kg} format={fmtKg} duration={700} /></span>
+                  <span className="ty">{l.label}{l.note ? ` (${l.note})` : ""}</span><span className="lead" /><span className="bd" style={{ fontSize: 15 }}><CountUp value={l.kg} format={fmtKg} duration={700} /></span>
                 </div>
               ))}
               <div className="rule" />
