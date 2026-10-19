@@ -9,6 +9,7 @@ import { CATEGORIES } from "@/data/mock";
 import { hasLink, isModerator } from "@/lib/moderation";
 import { processPhoto, sniffImage } from "@/lib/photos";
 import { LIMITS, POINTS } from "@/lib/rules";
+import { allow, RATE } from "@/lib/ratelimit";
 
 type Fail = { ok: false; error: string };
 const fail = (error: string): Fail => ({ ok: false, error });
@@ -81,6 +82,7 @@ export async function toggleReaction(postId: unknown, kind: unknown): Promise<Re
   try {
     const user = await currentUser();
     if (!user) return fail("Sign in first.");
+    if (!allow(`reactions:${user.id}`, RATE.reactions.limit, RATE.reactions.windowMs)) return fail("That is a lot of reactions in a few minutes. Give it a little while.");
     const id = z.string().uuid().parse(postId);
     const k = z.enum(["helpful", "did_it"]).parse(kind) as ReactionKind;
     const db = getDb();

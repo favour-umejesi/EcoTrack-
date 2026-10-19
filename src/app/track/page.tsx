@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuth } from "@/lib/auth/server";
 import { listPoints, listWeeklyLogs } from "@/db/queries";
 import { changes, monthKey, monthName, monthlyTotals, pointsLabel, streak, toIso, weekStart } from "@/lib/rules";
+import { today } from "@/lib/today";
 import TrackView from "./TrackView";
 
 /** Reads the member's ledger on the server and hands plain data to the view. */
@@ -11,7 +12,7 @@ export default async function Track() {
   const { data } = await getAuth().getSession();
   if (!data?.user) redirect("/sign-in?next=/track");
   const [logs, points] = await Promise.all([listWeeklyLogs(data.user.id), listPoints(data.user.id)]);
-  const now = new Date();
+  const now = await today();
   const months = monthlyTotals(logs);
   const first = months[0] ?? null;
   const last = months.at(-1) ?? null;

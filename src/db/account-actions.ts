@@ -2,7 +2,7 @@
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { getAuth } from "@/lib/auth/server";
-import { getDb } from "@/db";
+import { getDb, transaction } from "@/db";
 import { challengeMembers, personas, pointsLedger, posts, postPhotos, reactions, reports, userActions, weeklyLogs } from "@/db/schema";
 import { photoUrl } from "@/lib/photo-url";
 
@@ -55,25 +55,28 @@ export type DeleteResult = { ok: true } | Fail;
 /**
  * Hard delete. Removes every row the app holds, then the auth user itself from Neon's schema, so nothing of the
  * person remains. Points, posts and photos go with it; reactions and reports they made are removed too.
+ * Everything runs in one transaction: either the whole person is gone or nothing changed, so a failure midway
+ * can never leave orphaned rows behind a login that still works.
  */
 export async function deleteMyAccount(): Promise<DeleteResult> {
   try {
     const user = await currentUser();
     if (!user) return fail("Sign in first.");
-    const db = getDb();
     const id = user.id;
-    await db.delete(posts).where(eq(posts.userId, id)); // cascades photos, reactions and reports on those posts
-    await db.delete(reactions).where(eq(reactions.userId, id));
-    await db.delete(reports).where(eq(reports.reporterId, id));
-    await db.delete(challengeMembers).where(eq(challengeMembers.userId, id));
-    await db.delete(userActions).where(eq(userActions.userId, id));
-    await db.delete(pointsLedger).where(eq(pointsLedger.userId, id));
-    await db.delete(weeklyLogs).where(eq(weeklyLogs.userId, id));
-    await db.delete(personas).where(eq(personas.userId, id));
-    // Neon Auth's tables live in our database; column names there are camelCase.
-    await db.execute(sql`delete from neon_auth.session where "userId" = ${id}::uuid`);
-    await db.execute(sql`delete from neon_auth.account where "userId" = ${id}::uuid`);
-    await db.execute(sql`delete from neon_auth."user" where id = ${id}::uuid`);
+    await transaction(async (tx) => {
+      await tx.delete(posts).where(eq(posts.userId, id)); // cascades photos, reactions and reports on those posts
+      await tx.delete(reactions).where(eq(reactions.userId, id));
+      await tx.delete(reports).where(eq(reports.reporterId, id));
+      await tx.delete(challengeMembers).where(eq(challengeMembers.userId, id));
+      await tx.delete(userActions).where(eq(userActions.userId, id));
+      await tx.delete(pointsLedger).where(eq(pointsLedger.userId, id));
+      await tx.delete(weeklyLogs).where(eq(weeklyLogs.userId, id));
+      await tx.delete(personas).where(eq(personas.userId, id));
+      // Neon Auth's tables live in our database; column names there are camelCase.
+      await tx.execute(sql`delete from neon_auth.session where "userId" = ${id}::uuid`);
+      await tx.execute(sql`delete from neon_auth.account where "userId" = ${id}::uuid`);
+      await tx.execute(sql`delete from neon_auth."user" where id = ${id}::uuid`);
+    });
     return { ok: true };
   } catch {
     return fail("Could not delete the account. Nothing was changed; try again in a moment.");

@@ -1,6 +1,7 @@
 "use client";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { authClient } from "@/lib/auth/client";
+import { TZ_COOKIE } from "@/lib/rules";
 
 export type Mode = "guest" | "member";
 type Session = {
@@ -17,6 +18,13 @@ const Ctx = createContext<Session>({ mode: "guest", ready: false, signOut: async
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { data, isPending } = authClient.useSession();
   const user = data?.user;
+  // The server keys weeks and months on the member's own calendar day; this is how it learns which day that is.
+  useEffect(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) document.cookie = `${TZ_COOKIE}=${encodeURIComponent(tz)}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch { /* no zone known; the server uses UTC */ }
+  }, []);
   return (
     <Ctx.Provider value={{ mode: user ? "member" : "guest", ready: !isPending, signOut: async () => { try { await authClient.signOut(); } catch { /* already signed out */ } }, persona: { name: user?.name || "Quiet Fern" } }}>
       {children}

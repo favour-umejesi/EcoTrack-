@@ -19,6 +19,24 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export const toIso = (d: Date) => d.toISOString().slice(0, 10);
+/** The browser writes its IANA time zone into this cookie (components/Session.tsx); the server reads it in lib/today.ts. */
+export const TZ_COOKIE = "ecotrack.tz";
+/**
+ * The calendar date of `d` in the given IANA time zone, as an ISO date. An unknown or missing zone gives the UTC
+ * date, so a bad cookie can never throw. Only `tz` is trusted from outside; the formatter rejects anything that is
+ * not a real zone name.
+ */
+export function localDate(d: Date, tz?: string | null): string {
+  if (tz) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+      const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+      const iso = `${get("year")}-${get("month")}-${get("day")}`;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+    } catch { /* not a time zone */ }
+  }
+  return toIso(d);
+}
 export const fromIso = (iso: string) => new Date(`${iso}T00:00:00Z`);
 export const monthKey = (iso: string) => iso.slice(0, 7);
 export const monthLabel = (key: string) => MONTHS[Number(key.slice(5, 7)) - 1];

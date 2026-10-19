@@ -8,6 +8,8 @@ import { personas, pointsLedger, userActions, weeklyLogs } from "@/db/schema";
 import { compute } from "@/lib/engine";
 import { inputsSchema } from "@/lib/inputs";
 import { POINTS, streak, weekStart } from "@/lib/rules";
+import { today } from "@/lib/today";
+import { allow, RATE } from "@/lib/ratelimit";
 import { ACTION_LABELS, CHARACTERS } from "@/data/mock";
 
 /**
@@ -34,7 +36,8 @@ export async function saveWeeklyLog(raw: unknown, keepExisting = false): Promise
     if (!user) return fail("Sign in to keep a ledger.");
     const inputs = inputsSchema.parse(raw);
     const r = compute(inputs);
-    const week = weekStart(new Date());
+    const now = await today(); // the member's own calendar day, so late-Sunday logs stay in Sunday's week
+    const week = weekStart(now);
     const lines = r.lines.map(({ key, label, kg }) => ({ key, label, kg }));
     const db = getDb();
     const target = [weeklyLogs.userId, weeklyLogs.weekStart];
@@ -49,7 +52,7 @@ export async function saveWeeklyLog(raw: unknown, keepExisting = false): Promise
       pointsAwarded = awarded.length ? POINTS.logWeek : 0;
       // Every fourth consecutive week earns a bonus, once per milestone week.
       const weeks = await db.select({ weekStart: weeklyLogs.weekStart }).from(weeklyLogs).where(eq(weeklyLogs.userId, user.id));
-      const s = streak(weeks.map((w) => w.weekStart), new Date());
+      const s = streak(weeks.map((w) => w.weekStart), now);
       if (s.weeks > 0 && s.weeks % 4 === 0) {
         const bonus = await db.insert(pointsLedger).values({ userId: user.id, points: POINTS.fourWeeks, reason: "four_weeks", ref: `streak-${week}` }).onConflictDoNothing().returning({ id: pointsLedger.id });
         if (bonus.length) pointsAwarded += POINTS.fourWeeks;
@@ -105,6 +108,7 @@ export async function toggleAction(action: unknown): Promise<ToggleActionResult>
   try {
     const user = await currentUser();
     if (!user) return fail("Sign in to adopt an action.");
+    if (!allow(`actions:${user.id}`, RATE.actions.limit, RATE.actions.windowMs)) return fail("That is a lot of changes in a few minutes. Give it a little while.");
     const key = z.enum(Object.keys(ACTION_LABELS) as [string, ...string[]]).parse(action);
     const db = getDb();
     const gone = await db.delete(userActions).where(and(eq(userActions.userId, user.id), eq(userActions.action, key))).returning({ id: userActions.id });

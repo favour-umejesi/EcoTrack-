@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changes, monthlyTotals, streak, weekStart, type WeekLog } from "./rules";
+import { changes, localDate, monthlyTotals, streak, weekStart, type WeekLog } from "./rules";
 
 const log = (weekStart: string, annualKg: number, lines: [string, number][] = []): WeekLog => ({ weekStart, annualKg, lines: lines.map(([key, kg]) => ({ key, label: key, kg })) });
 const sat = new Date("2026-09-05T15:00:00Z"); // a Saturday; its week starts Monday 2026-08-31
@@ -69,5 +69,27 @@ describe("streak", () => {
     const s = streak(["2026-08-31"], sat);
     expect(s.weeks).toBe(1);
     expect(s.pattern.slice(-2)).toEqual(["miss", "done"]);
+  });
+});
+
+describe("localDate", () => {
+  const late = new Date("2026-10-18T23:30:00Z"); // a Sunday, late in the UTC evening
+  it("gives the member's own calendar date", () => {
+    expect(localDate(late, "America/Los_Angeles")).toBe("2026-10-18");
+    expect(localDate(late, "Asia/Tokyo")).toBe("2026-10-19");
+    expect(localDate(new Date("2026-10-19T03:00:00Z"), "America/New_York")).toBe("2026-10-18");
+  });
+  it("falls back to the UTC date without a zone or with a bad one", () => {
+    expect(localDate(late)).toBe("2026-10-18");
+    expect(localDate(late, "Mars/Olympus")).toBe("2026-10-18");
+    expect(localDate(late, "")).toBe("2026-10-18");
+  });
+  it("keeps a Sunday-night log in Sunday's week", () => {
+    const local = new Date(`${localDate(late, "America/Los_Angeles")}T00:00:00Z`);
+    expect(weekStart(local)).toBe("2026-10-12");
+    expect(weekStart(late)).toBe("2026-10-12"); // UTC agrees here; Monday 00:30 UTC would not
+    const mondayUtc = new Date("2026-10-19T00:30:00Z");
+    expect(weekStart(mondayUtc)).toBe("2026-10-19");
+    expect(weekStart(new Date(`${localDate(mondayUtc, "America/Los_Angeles")}T00:00:00Z`))).toBe("2026-10-12");
   });
 });
